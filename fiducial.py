@@ -6,7 +6,13 @@ import math
 from gopro2_calibration import *
 
 cap = cv2.VideoCapture(0)
-lines_lastFiveFrames = [0, 0, 0, 0, 0]
+buffer_lines = []
+buffer_length = 10
+
+rho_epsilon = 5
+theta_epsilon = 0.1
+
+similar = []
 
 while(True):
 	ret, frame = cap.read()
@@ -31,8 +37,33 @@ while(True):
 
 	lines = cv2.HoughLines(res, 0.5, np.pi/360, 30)
 	if lines != None:
-		print len(lines[0])
-		for rho, theta in lines[0]:
+		buffer_lines.append(lines[0])
+		if len(buffer_lines) > buffer_length:
+			buffer_lines.pop(0)
+		for i in range(len(buffer_lines)):
+			lines = [(rho, theta) for (rho, theta) in buffer_lines[i]]
+
+		if len(lines) > 1:
+			for i in range(len(lines)):
+				for j in range(i+1, len(lines)):
+					rho1 = lines[i][0]
+					theta1 = lines[i][1]
+					rho2 = lines[j][0]
+					theta2 = lines[j][1]
+
+					if abs(rho1 - rho2) < rho_epsilon and abs(theta1 - theta2) < theta_epsilon:
+						similar.append(i)
+						lines[j] = ((rho1 + rho2) / 2, (theta1 + theta2) / 2)
+
+			lines = [i for j, i in enumerate(lines) if j not in similar]
+			print similar
+			similar = []
+	else:
+		if len(buffer_lines) > 0:
+			buffer_lines.pop(0)
+
+	if lines != None:
+		for rho, theta in lines:
 			a = np.cos(theta)
 			b = np.sin(theta)
 			x0 = a*rho
@@ -42,13 +73,6 @@ while(True):
 			x2 = int(x0 - 1000*(-b))
 			y2 = int(y0 - 1000*(a))
 			cv2.line(gray, (x1,y1), (x2,y2), (0,0,255), 3)
-		lines_lastFiveFrames.append(lines[0])
-		lines_lastFiveFrames.pop(0)
-
-	if lines != None and len(lines[0]) > 1:
-		for i in range(len(lines[0])):
-			for j in range(len(lines[0])):
-				if 
 
 	# lines = cv2.HoughLinesP(res, 1, np.pi/180, 70, 10, 10)
 	# if lines != None:
