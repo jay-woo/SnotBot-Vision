@@ -8,12 +8,17 @@ def angle_cos(p0, p1, p2):
     return abs( np.dot(d1, d2) / np.sqrt( np.dot(d1, d1)*np.dot(d2, d2) ) )
 
 def find_squares(img):    
-    img = cv2.inRange(img, np.array([125, 125, 125], dtype=np.uint8), np.array([255, 255, 255], dtype=np.uint8))
-    img = cv2.GaussianBlur(img, (5,5), 0)
-    img = cv2.morphologyEx(img, cv2.MORPH_OPEN, (9,9))
+    lapl = cv2.Laplacian(img, cv2.CV_64F)
+    img = img - lapl
+    img = cv2.inRange(img, np.array([100, 100, 100], dtype=np.uint8), np.array([255, 255, 255], dtype=np.uint8))
+#    img2 = cv2.GaussianBlur(img, (0, 0), 3)
+#    img = cv2.addWeighted(img2, 1.5, img, -0.5, 0)
+    img = cv2.morphologyEx(img, cv2.MORPH_OPEN, (13,13))
 
     squares = []
-    bin = cv2.Canny(img, 200, 250, apertureSize=5)
+    bin = cv2.Canny(img, 100, 300, apertureSize=3)
+
+
     cv2.imshow('canny', bin)
     bin = cv2.dilate(bin, None)
     retval, bin = cv2.threshold(img, 100, 255, cv2.THRESH_BINARY)
@@ -41,7 +46,7 @@ def find_squares(img):
                 if abs(cv2.contourArea(cld) - average_area) < 100:
                     children_final.append(cld)
 
-        if len(cnt) >= 4 and cv2.isContourConvex(cnt) and len(children_final) >= 5:
+        if len(cnt) >= 4 and cv2.isContourConvex(cnt) and len(children_final) >= 6:
             cnt = cnt.reshape(-1, 2)
             max_cos = np.max([angle_cos( cnt[i], cnt[(i+1) % 4], cnt[(i+2) % 4] ) for i in xrange(4)])
             if max_cos < 0.1: 
@@ -55,7 +60,7 @@ def find_squares(img):
 
     return np.array(squares)
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1)
 
 while(True):
     ret, img = cap.read()
@@ -64,7 +69,10 @@ while(True):
     if len(squares) != 0:
         M = cv2.moments(squares)
         (x, y) = (int(M['m10'] / M['m00']), int(M['m01'] / M['m00']))
-        print (x, y)
+    else:
+        (x, y) = (0, 0)
+
+    print (x, y)
 
 
     cv2.drawContours( img, squares, -1, (0, 255, 0), 2 )
